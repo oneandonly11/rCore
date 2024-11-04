@@ -39,6 +39,10 @@ impl UserStack {
     }
 }
 
+pub fn get_user_stack_sp() -> usize {
+    USER_STACK.get_sp()
+}
+
 struct AppManager {
     num_app: usize,
     current_app: usize,
