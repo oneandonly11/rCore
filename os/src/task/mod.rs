@@ -4,6 +4,7 @@ mod task;
 
 use crate::config::MAX_APP_NUM;
 use crate::loader::{get_num_app, init_app_cx};
+use crate::loader::*;
 use lazy_static::*;
 use switch::__switch;
 use task::{TaskControlBlock, TaskStatus};
@@ -27,7 +28,8 @@ lazy_static! {
         let mut tasks = [
             TaskControlBlock {
                 task_cx: TaskContext::zero_init(),
-                task_status: TaskStatus::UnInit
+                task_status: TaskStatus::UnInit,
+                task_priority: 1,
             };
             MAX_APP_NUM
         ];
@@ -78,11 +80,20 @@ impl TaskManager {
     fn find_next_task(&self) -> Option<usize> {
         let inner = self.inner.exclusive_access();
         let current = inner.current_task;
+        // (current + 1..current + self.num_app + 1)
+        //     .map(|id| id % self.num_app)
+        //     .find(|id| {
+        //         inner.tasks[*id].task_status == TaskStatus::Ready
+        //     })
+
         (current + 1..current + self.num_app + 1)
-            .map(|id| id % self.num_app)
-            .find(|id| {
-                inner.tasks[*id].task_status == TaskStatus::Ready
-            })
+        .map(|id| id % self.num_app)
+        .filter(|id| {
+            inner.tasks[*id].task_status == TaskStatus::Ready
+        })
+        .min_by_key(|id| {
+            inner.tasks[*id].task_priority 
+        })
     }
 
     fn run_next_task(&self) {
@@ -106,6 +117,25 @@ impl TaskManager {
             panic!("All applications completed!");
         }
     }
+
+    fn get_current_task_id(&self) -> usize{
+        let inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        drop(inner);
+        current
+    }
+
+    fn set_current_task_prioity(&self,prior : isize) -> isize {
+        if prior <= 1 {
+            return -1;
+        }
+        let mut inner = self.inner.exclusive_access();
+        let current = inner.current_task;
+        let mut task = &mut inner.tasks[current];
+        task.task_priority = prior as usize;
+        drop(inner);
+        prior
+    }
 }
 
 pub fn run_first_task() {
@@ -124,6 +154,10 @@ fn mark_current_exited() {
     TASK_MANAGER.mark_current_exited();
 }
 
+fn set_current_task_prioity(prior : isize) -> isize {
+    TASK_MANAGER.set_current_task_prioity(prior)
+}
+
 pub fn suspend_current_and_run_next() {
     mark_current_suspended();
     run_next_task();
@@ -132,4 +166,18 @@ pub fn suspend_current_and_run_next() {
 pub fn exit_current_and_run_next() {
     mark_current_exited();
     run_next_task();
+}
+
+pub fn get_user_stack_sp() -> usize{
+    let task = TASK_MANAGER.get_current_task_id();
+    get_task_user_stack_sp(task)
+}
+
+pub fn get_task_address() -> usize{
+    let task = TASK_MANAGER.get_current_task_id();
+    get_base_i(task)
+}
+
+pub fn set_task_priority(prio: isize) -> isize {
+    set_current_task_prioity(prio)
 }

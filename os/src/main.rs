@@ -16,6 +16,8 @@ mod task;
 mod timer;
 mod sync;
 
+use core::arch::global_asm;
+
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("link_app.S"));
 

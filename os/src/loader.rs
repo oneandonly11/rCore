@@ -1,5 +1,6 @@
 use crate::trap::TrapContext;
 use crate::config::*;
+use core::arch::asm;
 
 #[repr(align(4096))]
 #[derive(Copy, Clone)]
@@ -40,7 +41,7 @@ impl UserStack {
     }
 }
 
-fn get_base_i(app_id: usize) -> usize {
+pub fn get_base_i(app_id: usize) -> usize {
     APP_BASE_ADDRESS + app_id * APP_SIZE_LIMIT
 }
 
@@ -80,4 +81,8 @@ pub fn init_app_cx(app_id: usize) -> usize {
     KERNEL_STACK[app_id].push_context(
         TrapContext::app_init_context(get_base_i(app_id), USER_STACK[app_id].get_sp()),
     )
+}
+
+pub fn get_task_user_stack_sp(task_id: usize) -> usize{
+    USER_STACK[task_id].get_sp()
 }
