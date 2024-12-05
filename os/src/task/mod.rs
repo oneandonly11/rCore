@@ -9,6 +9,9 @@ use lazy_static::*;
 use switch::__switch;
 use task::{TaskControlBlock, TaskStatus};
 use alloc::vec::Vec;
+use crate::mm::{PageTableEntry, VirtPageNum};
+use crate::mm::VirtAddr;
+use crate::mm::*;
 
 pub use context::TaskContext;
 
@@ -149,4 +152,35 @@ pub fn current_user_token() -> usize {
 
 pub fn current_trap_cx() -> &'static mut TrapContext {
     TASK_MANAGER.get_current_trap_cx()
+}
+
+pub fn get_current_page_table(vpn: VirtPageNum) -> Option<PageTableEntry> {
+    let inner = TASK_MANAGER.inner.exclusive_access();
+    let current_task = inner.current_task;
+    inner.tasks[current_task].memory_set.translate(vpn)
+}
+
+pub fn real_mmap(start_va: VirtAddr, end_va: VirtAddr, perm: MapPermission) {
+    let mut inner = TASK_MANAGER.inner.exclusive_access();
+    let current_task = inner.current_task;
+    inner.tasks[current_task].memory_set.insert_framed_area(start_va, end_va, perm);
+}
+
+pub fn real_unmap(start: usize, len: usize) -> isize {
+    let mut inner = TASK_MANAGER.inner.exclusive_access();
+    let current_task = inner.current_task;
+    let start_v = VirtAddr::from(start).floor();
+    let end_v = VirtAddr::from(start + len).ceil();
+    let vpns = VPNRange::new(start_v, end_v);
+    for vpn in vpns {
+        if let Some(pte) = inner.tasks[current_task].memory_set.translate(vpn) {
+            if !pte.is_valid() {
+                return -1;
+            }
+            inner.tasks[current_task].memory_set.get_page_table_mut().unmap(vpn);
+        } else {
+            return -1;
+        }
+    }
+    0
 }

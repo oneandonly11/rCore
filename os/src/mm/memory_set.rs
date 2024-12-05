@@ -7,6 +7,8 @@ use alloc::vec::Vec;
 use riscv::register::satp;
 use alloc::sync::Arc;
 use lazy_static::*;
+use core::arch::asm;
+use core::borrow::BorrowMut;
 use crate::sync::UPSafeCell;
 use crate::config::{
     MEMORY_END,
@@ -49,6 +51,9 @@ impl MemorySet {
     }
     pub fn token(&self) -> usize {
         self.page_table.token()
+    }
+    pub fn get_page_table_mut(&mut self) -> &mut PageTable {
+        self.page_table.borrow_mut()
     }
     /// Assume that no conflicts.
     pub fn insert_framed_area(&mut self, start_va: VirtAddr, end_va: VirtAddr, permission: MapPermission) {

@@ -4,12 +4,15 @@
 #![feature(asm)]
 #![feature(panic_info_message)]
 #![feature(alloc_error_handler)]
+#![feature(pointer_byte_offsets)]
 
 extern crate alloc;
 
 #[macro_use]
 extern crate bitflags;
 
+
+use core::arch::global_asm;
 #[macro_use]
 mod console;
 mod lang_items;
